@@ -169,7 +169,7 @@ const TOWERS = {
   plasma:  { name: 'Plasma',       icon: '🌀', cost: 700,  range: 3.0, cd: 1.7,  dmg: 85,  color: 0xb5179e, unlock: 12 },
   soleil:  { name: 'Rayon solaire', icon: '☀️', cost: 1200, range: 4.0, cd: 0.1,  dmg: 9,   color: 0xffb703, unlock: 16 },
 };
-const MINE_INCOME = [12, 22, 35];
+const MINE_INCOME = [14, 25, 40];
 const ENEMIES = {
   normal:   { hp: 32,  speed: 1.0,  reward: 5,  dmg: 1, bar: 0.98, icon: '🤖' },
   drone:    { hp: 18,  speed: 1.85, reward: 5,  dmg: 1, fly: true, bar: 0.3, icon: '🚁' },
@@ -181,7 +181,7 @@ const ENEMIES = {
   golem:    { hp: 320, speed: 0.42, reward: 20, dmg: 3, bar: 1.45, bw: 0.7, hy: 1.6, armor: 0.4, icon: '🗿' },
   lave:     { hp: 420, speed: 0.5,  reward: 26, dmg: 3, bar: 1.5, bw: 0.7, hy: 1.6, armor: 0.25, fireproof: true, icon: '🌋' },
   caillou:  { hp: 70,  speed: 0.75, reward: 4,  dmg: 1, bar: 0.75, bw: 0.4, armor: 0.25, icon: '🪨' },
-  roi:      { hp: 2600, speed: 0.3, reward: 220, dmg: 10, bar: 2.5, bw: 1.2, hy: 2.6, armor: 0.3, icon: '👑' },
+  roi:      { hp: 2100, speed: 0.3, reward: 220, dmg: 10, bar: 2.5, bw: 1.2, hy: 2.6, armor: 0.3, icon: '👑' },
 };
 const MAPS = [
   { id: 'prairie', name: 'Prairie', em: '🌳', diff: 'Facile', theme: 'prairie', path: [[0,1],[3,1],[3,7],[7,7],[7,2],[11,2],[11,8],[14,8],[14,4],[15,4]], decor: [[1,4],[1,8],[5,0],[5,4],[9,5],[9,9],[13,1],[12,5],[0,9],[15,0],[15,9],[8,0],[2,6],[13,6]], money: 150 },
@@ -503,7 +503,7 @@ const POWER_CD = 40;
 const towerAt = new Map();
 const tmpV = new THREE.Vector3(), tmpV2 = new THREE.Vector3();
 
-function hpMult(w) { return (1 + 0.36 * (w - 1) + 0.045 * (w - 1) * (w - 1)) * (mapDef.hp || 1); }
+function hpMult(w) { return (1 + 0.32 * (w - 1) + 0.035 * (w - 1) * (w - 1)) * (mapDef.hp || 1); }
 
 function spawnEnemy(type, w, d = 0) {
   const def = ENEMIES[type];
@@ -517,7 +517,7 @@ function spawnEnemy(type, w, d = 0) {
 
 function buildWave(w) {
   const list = [];
-  const n = 6 + Math.floor(w * 1.9);
+  const n = 6 + Math.floor(w * 1.75);
   for (let i = 0; i < n; i++) {
     let t = 'normal';
     if (w >= 2 && i % 3 === 1) t = 'drone';
@@ -1074,7 +1074,7 @@ function gameOver() {
 }
 function onWaveCleared() {
   const cleared = wave - lastIdleWave;
-  let bonus = 0; for (let w = lastIdleWave + 1; w <= wave; w++) bonus += 10 + 3 * w;
+  let bonus = 0; for (let w = lastIdleWave + 1; w <= wave; w++) bonus += 12 + 3.5 * w;
   let income = 0; towers.forEach(t => { if (t.type === 'mine') { const v = stats(t).income * cleared; income += v; floatText(t.pos, '+' + v); } });
   money += bonus + income;
   toast(`Vague ${wave} terminée ! +${bonus + income} 💰`);
