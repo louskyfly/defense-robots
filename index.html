@@ -34,10 +34,15 @@
   #bottom { position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; gap: 7px; padding: 8px 8px calc(10px + env(safe-area-inset-bottom)); background: linear-gradient(#0d1b2a99, #0d1b2aee); z-index: 5; }
   .tower { background: #1b263b; border: 3px solid #ffffff22; padding: 5px 4px; width: 96px; display: flex; flex-direction: column; align-items: center; gap: 1px; }
   .tower .ic { font-size: 26px; line-height: 1.1; }
-  .tower .nm { font-weight: 800; font-size: 14px; white-space: nowrap; }
+  .tower .nm { font-weight: 800; font-size: 14px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
   .tower .pr { font-size: 13px; color: #ffd166; font-weight: 700; }
   .tower.sel { border-color: #ffd166; background: #2b3a55; }
   .tower.poor { opacity: .45; }
+  .tower .lk { display: none; font-size: 11px; color: #ffd166; font-weight: 700; }
+  .tower.elite { border-color: #ffd16666; background: linear-gradient(#3a2d5c, #1b263b); }
+  .tower.locked { opacity: .55; }
+  .tower.locked .pr { display: none; } .tower.locked .lk { display: block; }
+  @media (max-width: 1100px) { #bottom { gap: 5px; } .tower { width: 76px; } .tower .nm { font-size: 12px; } .tower .ic { font-size: 22px; } }
   #panel { position: fixed; z-index: 6; background: #1b263bf2; border: 2px solid #ffffff33; border-radius: 16px; padding: 12px; width: 230px; display: none; box-shadow: 0 8px 30px #0008; }
   #panel h3 { margin: 0 0 4px; font-size: 18px; }
   #panel .info { font-size: 14px; opacity: .85; margin-bottom: 10px; }
@@ -66,7 +71,8 @@
   .map.locked { opacity: .45; }
   #toast { position: fixed; top: 74px; left: 50%; transform: translateX(-50%); z-index: 7; background: #000a; padding: 10px 18px; border-radius: 14px; font-weight: 800; font-size: 20px; opacity: 0; transition: opacity .3s; pointer-events: none; white-space: nowrap; }
   @media (max-width: 1000px) { #sNextWrap { display: none; } }
-  @media (max-width: 760px) { .tower { width: 80px; } .tower .nm { font-size: 12px; } .tower .ic { font-size: 22px; } .stat { font-size: 15px; padding: 6px 8px; } .tbtn { font-size: 14px; padding: 8px 8px; } }
+  @media (max-width: 900px) { .tower { width: 72px; padding: 4px 2px; } .tower .nm { font-size: 11px; } }
+  @media (max-width: 760px) { .tower { width: 62px; } .tower .nm { font-size: 12px; } .tower .ic { font-size: 22px; } .stat { font-size: 15px; padding: 6px 8px; } .tbtn { font-size: 14px; padding: 8px 8px; } }
   @media (max-width: 600px) { .tower { width: 46px; } .tower .nm { display: none; } .tower .pr { font-size: 11px; } }
 </style>
 </head>
@@ -103,6 +109,10 @@
       <div>🔥 <b>Flammes</b> : brûle tout près d'elle</div>
       <div>🪙 <b>Mine d'or</b> : rapporte de l'argent</div>
       <div>☄️ <b>Frappe</b> : touche la carte pour pulvériser</div>
+      <div>🔱 <b>Rail-canon</b> (vague 8) : transperce tout</div>
+      <div>🌀 <b>Plasma</b> (vague 12) : grosse onde</div>
+      <div>☀️ <b>Rayon solaire</b> (vague 16) : chauffe de plus en plus</div>
+      <div>🗿 <b>Golems</b> : blindés, le 👑 roi toutes les 10 vagues</div>
     </div>
     <p>Choisis une tour en bas, puis touche une case d'herbe. Touche une tour posée pour l'améliorer ou la vendre. Ta partie est sauvegardée toute seule.</p>
     <div id="saveInfo" class="rec"></div>
@@ -155,8 +165,11 @@ const TOWERS = {
   missile: { name: 'Missile',   icon: '🚀', cost: 110, range: 4.3, cd: 2.3,  dmg: 48,  color: 0x3a86ff },
   flamme:  { name: 'Flammes',   icon: '🔥', cost: 70,  range: 1.6, cd: 0.14, dmg: 2.2, color: 0xff7b00 },
   mine:    { name: "Mine d'or", icon: '🪙', cost: 100, range: 0,   cd: 99,   dmg: 0,   color: 0xffc300 },
+  rail:    { name: 'Rail-canon',   icon: '🔱', cost: 450,  range: 5.4, cd: 2.4,  dmg: 230, color: 0x00f5d4, unlock: 8 },
+  plasma:  { name: 'Plasma',       icon: '🌀', cost: 700,  range: 3.0, cd: 1.7,  dmg: 85,  color: 0xb5179e, unlock: 12 },
+  soleil:  { name: 'Rayon solaire', icon: '☀️', cost: 1200, range: 4.0, cd: 0.1,  dmg: 9,   color: 0xffb703, unlock: 16 },
 };
-const MINE_INCOME = [15, 28, 45];
+const MINE_INCOME = [12, 22, 35];
 const ENEMIES = {
   normal:   { hp: 32,  speed: 1.0,  reward: 5,  dmg: 1, bar: 0.98, icon: '🤖' },
   drone:    { hp: 18,  speed: 1.85, reward: 5,  dmg: 1, fly: true, bar: 0.3, icon: '🚁' },
@@ -164,7 +177,11 @@ const ENEMIES = {
   blinde:   { hp: 55,  speed: 0.8,  reward: 9,  dmg: 1, bar: 1.05, shield: 0.9, icon: '🔵' },
   diviseur: { hp: 70,  speed: 0.85, reward: 6,  dmg: 1, bar: 1.12, icon: '🟣' },
   mini:     { hp: 13,  speed: 1.5,  reward: 2,  dmg: 1, bar: 0.62, icon: '·' },
-  boss:     { hp: 650, speed: 0.48, reward: 70, dmg: 5, bar: 1.8, icon: '👹' },
+  boss:     { hp: 650, speed: 0.48, reward: 70, dmg: 5, bar: 1.8, bw: 0.9, hy: 2, icon: '👹' },
+  golem:    { hp: 320, speed: 0.42, reward: 20, dmg: 3, bar: 1.45, bw: 0.7, hy: 1.6, armor: 0.4, icon: '🗿' },
+  lave:     { hp: 420, speed: 0.5,  reward: 26, dmg: 3, bar: 1.5, bw: 0.7, hy: 1.6, armor: 0.25, fireproof: true, icon: '🌋' },
+  caillou:  { hp: 70,  speed: 0.75, reward: 4,  dmg: 1, bar: 0.75, bw: 0.4, armor: 0.25, icon: '🪨' },
+  roi:      { hp: 2600, speed: 0.3, reward: 220, dmg: 10, bar: 2.5, bw: 1.2, hy: 2.6, armor: 0.3, icon: '👑' },
 };
 const MAPS = [
   { id: 'prairie', name: 'Prairie', em: '🌳', diff: 'Facile', theme: 'prairie', path: [[0,1],[3,1],[3,7],[7,7],[7,2],[11,2],[11,8],[14,8],[14,4],[15,4]], decor: [[1,4],[1,8],[5,0],[5,4],[9,5],[9,9],[13,1],[12,5],[0,9],[15,0],[15,9],[8,0],[2,6],[13,6]], money: 150 },
@@ -394,6 +411,11 @@ const M = {
   bubble: new THREE.MeshBasicMaterial({ color: 0x48cae4, transparent: true, opacity: 0.28, depthWrite: false }),
   gold: new THREE.MeshStandardMaterial({ color: 0xffc300, metalness: 0.8, roughness: 0.25, emissive: 0x6b4f00, emissiveIntensity: 0.4 }),
   wood: new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.9 }),
+  golem: new THREE.MeshStandardMaterial({ color: 0x8a8578, roughness: 0.95, flatShading: true }),
+  lave: new THREE.MeshStandardMaterial({ color: 0x3a2622, roughness: 0.9, flatShading: true, emissive: 0xff4800, emissiveIntensity: 0.35 }),
+  roi: new THREE.MeshStandardMaterial({ color: 0x5c677d, roughness: 0.85, flatShading: true, emissive: 0x1b2a4a, emissiveIntensity: 0.5 }),
+  rune: new THREE.MeshBasicMaterial({ color: 0x4cf2ff }),
+  magma: new THREE.MeshBasicMaterial({ color: 0xffa200 }),
 };
 const iceMat = new THREE.MeshStandardMaterial({ color: 0x9be7ff, emissive: 0x4cc9f0, emissiveIntensity: 0.6, metalness: 0.3, roughness: 0.3 });
 const box = (w, h, d, mat) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.castShadow = true; return m; };
@@ -441,6 +463,26 @@ function buildEnemyMesh(type) {
     const gun = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.3, 8), M.dark); gun.rotation.z = Math.PI / 2; gun.position.set(0.25, 0.37, 0); gun.castShadow = true;
     const eye = box(0.02, 0.04, 0.12, M.eye); eye.position.set(0.13, 0.4, 0);
     g.add(hull, t1, t2, tur, gun, eye); g.scale.setScalar(1.15);
+  } else if (['golem', 'lave', 'caillou', 'roi'].includes(type)) {
+    const mat = M[type === 'caillou' ? 'lave' : type], glow = type === 'golem' || type === 'roi' ? M.rune : M.magma;
+    const rock = (r, x, y, z) => { const m = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), mat); m.position.set(x, y, z); m.rotation.set(x * 3, y * 5, z * 7); m.castShadow = true; return m; };
+    const body = rock(0.3, 0, 0.52, 0); body.scale.set(1, 1.1, 1.15);
+    const head = rock(0.15, 0.06, 0.9, 0);
+    const e1 = box(0.04, 0.04, 0.04, glow); e1.position.set(0.2, 0.92, 0.06); const e2 = e1.clone(); e2.position.z = -0.06;
+    const core = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), glow); core.position.set(0.27, 0.55, 0);
+    const legL = new THREE.Group(); legL.position.set(0, 0.3, 0.14); legL.add(rock(0.12, 0, -0.16, 0));
+    const legR = new THREE.Group(); legR.position.set(0, 0.3, -0.14); legR.add(rock(0.12, 0, -0.16, 0));
+    const armL = new THREE.Group(); armL.position.set(0, 0.68, 0.36); armL.add(rock(0.11, 0, -0.1, 0), rock(0.13, 0.02, -0.32, 0));
+    const armR = new THREE.Group(); armR.position.set(0, 0.68, -0.36); armR.add(rock(0.11, 0, -0.1, 0), rock(0.13, 0.02, -0.32, 0));
+    g.add(body, head, e1, e2, core, legL, legR, armL, armR);
+    Object.assign(parts, { legL, legR, armL, armR, golem: true });
+    if (type === 'roi') {
+      const crown = new THREE.Group(); crown.position.set(0.06, 1.04, 0);
+      const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.15, 0.07, 10, 1, true), M.gold); crown.add(ring);
+      for (let i = 0; i < 5; i++) { const sp = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.1, 4), M.gold); const a = i * 1.257; sp.position.set(Math.cos(a) * 0.13, 0.07, Math.sin(a) * 0.13); crown.add(sp); }
+      g.add(crown); g.scale.setScalar(2.1);
+    } else if (type === 'caillou') g.scale.setScalar(0.55);
+    else g.scale.setScalar(1.25);
   }
   return { g, parts };
 }
@@ -461,7 +503,7 @@ const POWER_CD = 40;
 const towerAt = new Map();
 const tmpV = new THREE.Vector3(), tmpV2 = new THREE.Vector3();
 
-function hpMult(w) { return (1 + 0.27 * (w - 1) + 0.025 * (w - 1) * (w - 1)) * (mapDef.hp || 1); }
+function hpMult(w) { return (1 + 0.36 * (w - 1) + 0.045 * (w - 1) * (w - 1)) * (mapDef.hp || 1); }
 
 function spawnEnemy(type, w, d = 0) {
   const def = ENEMIES[type];
@@ -475,7 +517,7 @@ function spawnEnemy(type, w, d = 0) {
 
 function buildWave(w) {
   const list = [];
-  const n = 5 + Math.floor(w * 1.6);
+  const n = 6 + Math.floor(w * 1.9);
   for (let i = 0; i < n; i++) {
     let t = 'normal';
     if (w >= 2 && i % 3 === 1) t = 'drone';
@@ -483,9 +525,13 @@ function buildWave(w) {
     if (w >= 7 && i % 5 === 0) t = 'char';
     if (w >= 6 && i % 6 === 2) t = 'blinde';
     if (w >= 8 && i % 7 === 4) t = 'diviseur';
+    if (w >= 9 && i % 8 === 5) t = 'golem';
+    if (w >= 13 && i % 9 === 7) t = 'lave';
+    if (w >= 18 && i % 6 === 0) t = 'golem';
     list.push(t);
   }
-  if (w % 5 === 0) { list.push('boss'); if (w >= 15) list.push('boss'); if (w >= 25) list.push('boss'); }
+  if (w % 10 === 0) { list.push('roi'); if (w >= 30) list.push('roi'); }
+  else if (w % 5 === 0) { list.push('boss'); if (w >= 15) list.push('boss'); if (w >= 25) list.push('boss'); }
   return list;
 }
 function previewText(w) {
@@ -498,8 +544,9 @@ function nextWave() {
   if (!running) return;
   if (isIdle()) { idleMoney = money; idleLives = lives; lastIdleWave = wave; }
   wave++;
-  buildWave(wave).forEach((t, i) => spawnQueue.push({ type: t, w: wave, delay: i === 0 && spawnQueue.length === 0 ? 0.2 : (t === 'boss' ? 1.6 : t === 'drone' ? 0.55 : 0.85) }));
-  toast(wave % 5 === 0 ? `⚠️ Vague ${wave} : BOSS !` : `Vague ${wave}`);
+  buildWave(wave).forEach((t, i) => spawnQueue.push({ type: t, w: wave, delay: i === 0 && spawnQueue.length === 0 ? 0.2 : (t === 'boss' || t === 'roi' ? 1.6 : t === 'drone' ? 0.55 : 0.85) }));
+  const unl = Object.values(TOWERS).find(d => d.unlock === wave);
+  toast(wave % 10 === 0 ? `👑 Vague ${wave} : ROI GOLEM !` : wave % 5 === 0 ? `⚠️ Vague ${wave} : BOSS !` : unl ? `🔓 Nouvelle arme : ${unl.icon} ${unl.name}` : wave === 9 ? `🗿 Vague 9 : les golems arrivent !` : `Vague ${wave}`);
   ui();
 }
 
@@ -543,6 +590,23 @@ function buildTowerMesh(type) {
     const roof = new THREE.Mesh(new THREE.ConeGeometry(0.38, 0.22, 4), new THREE.MeshStandardMaterial({ color: 0x9c2a2a })); roof.position.y = 0.41; roof.rotation.y = Math.PI / 4; roof.castShadow = true;
     const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.04, 20), M.gold); coin.rotation.x = Math.PI / 2; coin.position.y = 0.72;
     head.add(hut, roof, coin); g.userData.coin = coin;
+  } else if (type === 'rail') {
+    const b = box(0.36, 0.2, 0.34, mat); b.position.y = 0.12;
+    [-0.07, 0.07].forEach(z => { const r = box(0.7, 0.05, 0.04, M.dark); r.position.set(0.28, 0.27, z); head.add(r); });
+    for (let i = 0; i < 3; i++) { const c = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.025, 6, 12), new THREE.MeshBasicMaterial({ color: 0x00f5d4 })); c.rotation.y = Math.PI / 2; c.position.set(0.12 + i * 0.2, 0.27, 0); head.add(c); }
+    head.add(b);
+  } else if (type === 'plasma') {
+    const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.24, 0.3, 8), M.dark); ped.position.y = 0.15; ped.castShadow = true;
+    const orb = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), new THREE.MeshBasicMaterial({ color: 0xf72585 })); orb.position.y = 0.52;
+    const r1 = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.03, 6, 20), mat); r1.position.y = 0.52; r1.rotation.x = 1.1;
+    const r2 = r1.clone(); r2.rotation.set(-1.1, 0, 0.6);
+    head.add(ped, orb, r1, r2); g.userData.spin = head; g.userData.orb = orb;
+  } else if (type === 'soleil') {
+    const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.22, 0.45, 8), M.gold); ped.position.y = 0.22; ped.castShadow = true;
+    const dish = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 8, 0, Math.PI * 2, 0, 1.0), new THREE.MeshStandardMaterial({ color: 0xfff1c1, metalness: 0.9, roughness: 0.15, side: THREE.DoubleSide }));
+    dish.rotation.z = Math.PI / 2 + 0.5; dish.position.set(0.05, 0.55, 0);
+    const foc = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffea00 })); foc.position.set(0.3, 0.72, 0);
+    head.add(ped, dish, foc);
   }
   const pips = new THREE.Group(); pips.position.y = 0.24; g.add(pips); g.userData.pips = pips;
   return { g, head };
@@ -639,8 +703,9 @@ function updateFx(dt) {
 }
 
 // ---------- Combat ----------
-function damage(e, amount) {
+function damage(e, amount, pierce = false) {
   if (!e.alive) return;
+  if (e.def.armor && !pierce) amount *= 1 - e.def.armor;
   if (e.shield > 0) {
     const a = Math.min(e.shield, amount); e.shield -= a; amount -= a;
     if (e.shield <= 0 && e.parts.bubble) { e.parts.bubble.visible = false; flash(e.pos.clone().setY(0.5), 0x48cae4, 0.7, 0.2); }
@@ -648,10 +713,13 @@ function damage(e, amount) {
   e.hp -= amount;
   if (e.hp <= 0) {
     e.alive = false; money += e.def.reward;
-    explode(e.pos, e.type === 'boss' || e.type === 'char');
-    const colors = { boss: 0x9d0208, drone: 0xf4a261, char: 0x606c38, blinde: 0x1d4ed8, diviseur: 0x7b2cbf, mini: 0xc77dff };
-    puff(e.pos, colors[e.type] || 0x9aa5b1, e.type === 'boss' ? 22 : 8, e.type === 'boss' ? 1.2 : 0.7);
+    explode(e.pos, e.type === 'boss' || e.type === 'char' || !!e.def.hy);
+    const colors = { boss: 0x9d0208, drone: 0xf4a261, char: 0x606c38, blinde: 0x1d4ed8, diviseur: 0x7b2cbf, mini: 0xc77dff, golem: 0x8a8578, lave: 0xff6d00, caillou: 0xff6d00, roi: 0x5c677d };
+    const big = e.type === 'boss' || e.type === 'roi';
+    puff(e.pos, colors[e.type] || 0x9aa5b1, big ? 22 : e.def.hy ? 14 : 8, big ? 1.2 : 0.7);
     if (e.type === 'diviseur') for (let i = 0; i < 3; i++) spawnEnemy('mini', e.w, Math.max(0, e.d - i * 0.25));
+    if (e.type === 'lave') for (let i = 0; i < 2; i++) spawnEnemy('caillou', e.w, Math.max(0, e.d - i * 0.3));
+    if (e.type === 'roi') { for (let i = 0; i < 3; i++) spawnEnemy('golem', e.w, Math.max(0, e.d - i * 0.4)); ringPulse(e.pos, 2, 0x4cf2ff); }
     removeEnemy(e); ui();
   }
 }
@@ -668,18 +736,20 @@ function inRange(t, r, prio = 'premier') {
   return out;
 }
 function aim(t, e) { t.head.rotation.y = Math.atan2(-(e.pos.z - t.pos.z), e.pos.x - t.pos.x); }
-const hitPos = e => { const p = e.pos.clone(); p.y += e.def.fly ? 0 : 0.35 * (e.type === 'boss' ? 2 : 1); return p; };
+const hitPos = e => { const p = e.pos.clone(); p.y += e.def.fly ? 0 : 0.35 * (e.def.hy || 1); return p; };
 
 function towerUpdate(t, dt) {
   if (t.grow < 1) { t.grow = Math.min(1, t.grow + dt * 4); const s = 0.1 + 0.9 * (1 - Math.pow(1 - t.grow, 3)) * (1 + 0.08 * (t.level - 1)); t.g.scale.setScalar(s); }
   if (t.g.userData.spin) t.g.userData.spin.rotation.y += dt * 1.5;
   if (t.g.userData.coin) t.g.userData.coin.rotation.z += dt * 2.5;
+  if (t.g.userData.orb) t.g.userData.orb.scale.setScalar(1 + Math.sin(performance.now() / 150) * 0.08);
   if (t.type === 'mine') return;
   t.cd -= dt;
   const s = stats(t);
   const targets = inRange(t, s.range, t.prio);
   if (!targets.length) return;
-  if (t.type !== 'glace') aim(t, targets[0]);
+  if (t.type !== 'glace' && t.type !== 'plasma') aim(t, targets[0]);
+  if (t.type === 'soleil' && t.lock !== targets[0]) { t.lock = targets[0]; t.heat = 0; }
   if (t.cd > 0) return;
   t.cd = s.cd;
   const top = tmpV.copy(t.pos); top.y += 0.55;
@@ -701,7 +771,27 @@ function towerUpdate(t, dt) {
     const noz = t.pos.clone(); noz.y += 0.46;
     const dir = tgPos.clone().sub(noz).setY(0).normalize(); noz.addScaledVector(dir, 0.35);
     for (let i = 0; i < 2; i++) flameBall(noz, tgPos);
-    for (const e of targets) { damage(e, s.dmg); if (e.alive) { e.burn = 1.5; e.burnDps = Math.max(e.burnDps, s.dmg * 3); } }
+    for (const e of targets) { damage(e, s.dmg); if (e.alive && !e.def.fireproof) { e.burn = 1.5; e.burnDps = Math.max(e.burnDps, s.dmg * 3); } }
+  } else if (t.type === 'rail') {
+    const from = top.clone(); from.y += 0.05;
+    const dir = tgPos.clone().sub(from).setY(0).normalize();
+    const end = from.clone().addScaledVector(dir, s.range + 0.5); end.y = tgPos.y;
+    beam(from, end, 0x00f5d4, 0.09, 0.3); beam(from, end, 0xffffff, 0.03, 0.3); flash(from, 0x00f5d4, 0.5, 0.2);
+    for (const e of [...enemies]) {
+      if (!e.alive) continue;
+      const rx = e.pos.x - from.x, rz = e.pos.z - from.z, along = rx * dir.x + rz * dir.z;
+      if (along < 0 || along > s.range + 0.5) continue;
+      if (Math.abs(rx * dir.z - rz * dir.x) < 0.4) { flash(hitPos(e), 0xaffff0, 0.35, 0.15); damage(e, s.dmg, true); }
+    }
+  } else if (t.type === 'plasma') {
+    ringPulse(t.pos, s.range, 0xf72585); flash(t.pos.clone().setY(0.75), 0xf72585, 0.9, 0.25);
+    for (const e of targets) { flash(hitPos(e), 0xff70d0, 0.3, 0.2); damage(e, s.dmg); if (e.alive) { e.slow = Math.max(e.slow, 0.25); e.slowT = 1.0; } }
+  } else if (t.type === 'soleil') {
+    t.heat = Math.min((t.heat || 0) + s.cd, 4);
+    const mult = 1 + t.heat * 1.75, from = t.pos.clone(); from.y += 0.75 * (1 + 0.08 * (t.level - 1));
+    beam(from, tgPos, 0xffb703, 0.04 + 0.025 * t.heat, 0.13); beam(from, tgPos, 0xffffff, 0.015 + 0.008 * t.heat, 0.13);
+    if (Math.random() < 0.5) flash(tgPos, 0xffea00, 0.25 + 0.08 * t.heat, 0.12);
+    damage(tg, s.dmg * mult);
   } else if (t.type === 'glace') {
     ringPulse(t.pos, s.range, 0x9be7ff);
     for (const e of targets) { damage(e, s.dmg); if (e.alive) { e.slow = Math.max(e.slow, s.slow); e.slowT = 1.6; } }
@@ -773,7 +863,8 @@ function enemyUpdate(e, dt) {
   }
   e.g.position.copy(e.pos);
   const P = e.parts, sw = Math.sin(e.t * 9 * sp);
-  if (P.legL) { P.legL.rotation.z = sw * 0.5; P.legR.rotation.z = -sw * 0.5; P.armL.rotation.z = -sw * 0.4; P.armR.rotation.z = sw * 0.4; e.g.position.y = Math.abs(sw) * 0.03; }
+  if (P.golem) { const g2 = Math.sin(e.t * 5 * sp + 0.3); P.legL.rotation.z = g2 * 0.35; P.legR.rotation.z = -g2 * 0.35; P.armL.rotation.z = -g2 * 0.3; P.armR.rotation.z = g2 * 0.3; e.g.position.y = Math.abs(g2) * 0.04; }
+  else if (P.legL) { P.legL.rotation.z = sw * 0.5; P.legR.rotation.z = -sw * 0.5; P.armL.rotation.z = -sw * 0.4; P.armR.rotation.z = sw * 0.4; e.g.position.y = Math.abs(sw) * 0.03; }
   if (P.rotors) { P.rotors.forEach((r, i) => r.rotation.y += dt * 40 * (i % 2 ? 1 : -1)); e.g.position.y = P.bodyY + Math.sin(e.t * 3) * 0.06; e.pos.y = e.g.position.y; }
   if (e.type === 'char') e.g.position.y = Math.sin(e.t * 20) * 0.01;
   if (P.bubble) P.bubble.scale.setScalar(1 + Math.sin(e.t * 4) * 0.04);
@@ -781,7 +872,7 @@ function enemyUpdate(e, dt) {
   if (iced !== e.iced) { e.iced = iced; e.g.traverse(o => { if (o.isMesh && o.material.emissive !== undefined && o.material !== M.bubble) { if (!o.userData.mat0) o.userData.mat0 = o.material; o.material = iced ? iceMat : o.userData.mat0; } }); }
   // Barre de vie (bleue tant que le bouclier tient)
   const h = e.def.bar + (e.def.fly ? e.pos.y : 0);
-  const w = e.type === 'boss' ? 0.9 : e.type === 'mini' ? 0.32 : 0.5;
+  const w = e.def.bw || (e.type === 'mini' ? 0.32 : 0.5);
   const k = e.shield > 0 ? e.shield / e.maxShield : Math.max(0, e.hp / e.maxHp);
   e.bar.bg.position.set(e.pos.x - w / 2, h, e.pos.z); e.bar.bg.scale.set(w, 0.07, 1);
   e.bar.fg.position.set(e.pos.x - w / 2 + 0.01, h, e.pos.z + 0.001); e.bar.fg.scale.set((w - 0.02) * k, 0.05, 1);
@@ -805,19 +896,22 @@ function strike(p) {
 const $ = id => document.getElementById(id);
 for (const [key, d] of Object.entries(TOWERS)) {
   const b = document.createElement('button'); b.className = 'tower'; b.dataset.type = key;
-  b.innerHTML = `<span class="ic">${d.icon}</span><span class="nm">${d.name}</span><span class="pr">💰${d.cost}</span>`;
+  b.innerHTML = `<span class="ic">${d.icon}</span><span class="nm">${d.name}</span><span class="pr">💰${d.cost}</span><span class="lk">🔒 vague ${d.unlock || 0}</span>`;
+  if (d.unlock) b.classList.add('elite');
   b.addEventListener('click', () => {
     closePanel(); powerArmed = false;
+    if (isLocked(key)) { selectedType = null; toast(`${d.icon} ${d.name} : se débloque à la vague ${d.unlock}`); ui(); return; }
     selectedType = selectedType === key ? null : key;
     if (selectedType && money < d.cost) toast('Pas assez d\'argent');
     ui();
   });
   $('bottom').appendChild(b);
 }
+function isLocked(type) { const u = TOWERS[type].unlock; return !!u && wave < u; }
 function ui() {
   $('sLives').textContent = Math.max(0, lives); $('sMoney').textContent = Math.floor(money); $('sWave').textContent = 'Vague ' + wave;
   $('sNext').textContent = previewText(wave + 1);
-  document.querySelectorAll('.tower').forEach(b => { b.classList.toggle('sel', b.dataset.type === selectedType); b.classList.toggle('poor', money < TOWERS[b.dataset.type].cost); });
+  document.querySelectorAll('.tower').forEach(b => { b.classList.toggle('sel', b.dataset.type === selectedType); b.classList.toggle('poor', money < TOWERS[b.dataset.type].cost); b.classList.toggle('locked', isLocked(b.dataset.type)); });
   $('btnNext').classList.toggle('pulse', isIdle() && running);
   const pb = $('btnPower');
   pb.classList.toggle('cool', powerCd > 0); pb.classList.toggle('armed', powerArmed);
@@ -832,9 +926,9 @@ function openPanel(t) { selectedTower = t; selectedType = null; cursor.visible =
 function fillPanel() {
   const t = selectedTower, d = TOWERS[t.type], s = stats(t);
   $('pTitle').textContent = `${d.icon} ${d.name} — niv. ${t.level}`;
-  const extra = { glace: `ralentit de ${Math.round(s.slow * 100)} %`, eclair: `touche ${s.chain} robots`, canon: 'dégâts de zone', laser: 'tir rapide', missile: 'x2 contre les drones', flamme: 'brûle tout autour', mine: '' }[t.type];
+  const extra = { glace: `ralentit de ${Math.round(s.slow * 100)} %`, eclair: `touche ${s.chain} robots`, canon: 'dégâts de zone', laser: 'tir rapide', missile: 'x2 contre les drones', flamme: 'brûle tout autour', mine: '', rail: 'transperce tout, ignore l\'armure', plasma: 'onde qui frappe tout autour', soleil: 'chauffe : de plus en plus fort' }[t.type];
   $('pInfo').textContent = t.type === 'mine' ? `Rapporte ${s.income} 💰 à chaque vague finie` : `Dégâts ${Math.round(s.dmg)} · ${extra}`;
-  const prioOk = ['canon', 'laser', 'eclair', 'missile'].includes(t.type);
+  const prioOk = ['canon', 'laser', 'eclair', 'missile', 'rail', 'soleil'].includes(t.type);
   $('pPrio').style.display = prioOk ? 'block' : 'none';
   $('pPrio').textContent = `🎯 Vise : ${PRIO_TXT[t.prio]}`;
   const up = $('pUp');
@@ -913,6 +1007,7 @@ renderer.domElement.addEventListener('pointerup', ev => {
   if (selectedType) {
     const d = TOWERS[selectedType], p = cellPos(c.x, c.z);
     if (!canBuild(c.x, c.z)) { toast(isPath.has(c.x + ',' + c.z) ? 'Pas sur le chemin !' : 'Case occupée'); return; }
+    if (isLocked(selectedType)) { toast(`Se débloque à la vague ${d.unlock}`); return; }
     if (money < d.cost) { toast('Pas assez d\'argent'); return; }
     placeTower(selectedType, c.x, c.z);
     showRange(p, d.range); rangeFade = 1.4;
@@ -979,7 +1074,7 @@ function gameOver() {
 }
 function onWaveCleared() {
   const cleared = wave - lastIdleWave;
-  let bonus = 0; for (let w = lastIdleWave + 1; w <= wave; w++) bonus += 15 + 4 * w;
+  let bonus = 0; for (let w = lastIdleWave + 1; w <= wave; w++) bonus += 10 + 3 * w;
   let income = 0; towers.forEach(t => { if (t.type === 'mine') { const v = stats(t).income * cleared; income += v; floatText(t.pos, '+' + v); } });
   money += bonus + income;
   toast(`Vague ${wave} terminée ! +${bonus + income} 💰`);
